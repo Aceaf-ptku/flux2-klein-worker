@@ -14,7 +14,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # Python deps (torch CUDA — versi kecil dari index)
 RUN pip install --no-cache-dir --default-timeout=120 \
-    torch torchvision --index-url https://download.pytorch.org/whl/cu121 \
+    torch torchvision --index-url https://download.pytorch.org/whl/cu121
+RUN pip install --no-cache-dir --default-timeout=120 \
     diffusers>=0.31.0 transformers>=4.45.0 \
     accelerate>=0.34.0 safetensors>=0.4.0 \
     pillow>=10.0.0 huggingface_hub>=0.25.0 \

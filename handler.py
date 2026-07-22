@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-RunPod Serverless Worker — Flux2 Klein 9B Uncensored
-Model: ponpoke/flux2-klein-9b-uncensored-text-encoder
+RunPod Serverless Worker — FLUX.1-dev Abliterated (Uncensored)
+Model: aoxo/flux.1dev-abliteratedv2
 
 Menerima prompt → generate gambar → return base64 + metadata.
 """
@@ -14,31 +14,25 @@ import runpod
 
 # Global model — loaded once, reused across requests
 _pipe = None
-_model_id = "shauray/FLUX-UNCENSORED-merged"
+_model_id = "aoxo/flux.1dev-abliteratedv2"
 
 
 def load_model():
-    """Load Flux2 Klein pipeline. Dipanggil sekali saat container start."""
+    """Load FLUX.1-dev Abliterated pipeline. Dipanggil sekali saat container start."""
     global _pipe
 
     print(f"[WORKER] Loading {_model_id}...", flush=True)
     t0 = time.time()
 
-    from diffusers import DiffusionPipeline
+    from diffusers import FluxPipeline
     import torch
 
-    _pipe = DiffusionPipeline.from_pretrained(
+    _pipe = FluxPipeline.from_pretrained(
         _model_id,
-        torch_dtype=torch.bfloat16,          # efficient on modern GPUs
+        torch_dtype=torch.bfloat16,
         use_safetensors=True,
     )
     _pipe.to("cuda")
-    # Optional: enable memory-efficient attention
-    try:
-        _pipe.enable_attention_slicing()
-        print("[WORKER] Attention slicing enabled", flush=True)
-    except Exception:
-        pass
 
     elapsed = time.time() - t0
     print(f"[WORKER] Model loaded in {elapsed:.1f}s", flush=True)

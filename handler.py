@@ -1,121 +1,71 @@
 #!/usr/bin/env python3
 """
-RunPod Serverless Worker — FLUX.1-dev Abliterated (Uncensored)
-Model: aoxo/flux.1dev-abliteratedv2
+RunPod Serverless Worker — Realistic Vision V5.1 (Uncensored)
+Model: SG161222/Realistic_Vision_V5.1_noVAE
 
 Menerima prompt → generate gambar → return base64 + metadata.
 """
-
 import io
 import base64
 import time
-import traceback
 import runpod
 
-# Global model — loaded once, reused across requests
 _pipe = None
-_model_id = "aoxo/flux.1dev-abliteratedv2"
-
+_model_id = "SG161222/Realistic_Vision_V5.1_noVAE"
 
 def load_model():
-    """Load FLUX.1-dev Abliterated pipeline. Dipanggil sekali saat container start."""
     global _pipe
-
     print(f"[WORKER] Loading {_model_id}...", flush=True)
     t0 = time.time()
 
-    from diffusers import FluxPipeline
+    from diffusers import StableDiffusionPipeline
     import torch
 
-    _pipe = FluxPipeline.from_pretrained(
+    _pipe = StableDiffusionPipeline.from_pretrained(
         _model_id,
-        torch_dtype=torch.bfloat16,
+        torch_dtype=torch.float16,
         use_safetensors=True,
+        safety_checker=None,
     )
     _pipe.to("cuda")
+    _pipe.enable_attention_slicing()
 
-    elapsed = time.time() - t0
-    print(f"[WORKER] Model loaded in {elapsed:.1f}s", flush=True)
-
+    print(f"[WORKER] Loaded in {time.time()-t0:.1f}s", flush=True)
 
 def generate_image(job):
-    """
-    Generate gambar dari prompt.
-
-    Input job (dari RunPod):
-        {
-            "input": {
-                "prompt": "...",
-                "width": 1024,        # optional, default 1024
-                "height": 1024,       # optional, default 1024
-                "num_inference_steps": 28,  # optional, default 28
-                "guidance_scale": 3.5,      # optional, default 3.5
-                "seed": null                  # optional, null = random
-            }
-        }
-
-    Returns:
-        {
-            "image": "<base64>",
-            "format": "png",
-            "width": 1024,
-            "height": 1024,
-            "gen_time_ms": 1234
-        }
-    """
     global _pipe
-
     inp = job.get("input", {})
     prompt = inp.get("prompt", "")
-    width = inp.get("width", 1024)
-    height = inp.get("height", 1024)
-    steps = inp.get("num_inference_steps", 28)
-    guidance = inp.get("guidance_scale", 3.5)
+    width = inp.get("width", 512)
+    height = inp.get("height", 512)
+    steps = inp.get("num_inference_steps", 25)
+    guidance = inp.get("guidance_scale", 7.5)
     seed = inp.get("seed")
 
     if not prompt:
         return {"error": "prompt is required"}
 
-    # Set seed if provided
     import torch
-    if seed is not None:
-        generator = torch.Generator(device="cuda").manual_seed(int(seed))
-    else:
-        generator = None
+    generator = torch.Generator(device="cuda").manual_seed(int(seed)) if seed else None
 
-    print(f"[WORKER] Generating: {width}x{height}, {steps} steps, seed={seed}", flush=True)
+    print(f"[WORKER] {prompt[:50]}... {width}x{height}", flush=True)
     t0 = time.time()
 
-    result = _pipe(
-        prompt=prompt,
-        width=width,
-        height=height,
-        num_inference_steps=steps,
-        guidance_scale=guidance,
-        generator=generator,
-    )
+    result = _pipe(prompt=prompt, width=width, height=height,
+                   num_inference_steps=steps, guidance_scale=guidance,
+                   generator=generator)
     image = result.images[0]
 
-    gen_ms = int((time.time() - t0) * 1000)
-
-    # Encode to PNG base64
     buf = io.BytesIO()
     image.save(buf, format="PNG")
     buf.seek(0)
     img_b64 = base64.b64encode(buf.read()).decode("utf-8")
 
-    print(f"[WORKER] Done in {gen_ms}ms, {len(img_b64)//1024}KB base64", flush=True)
+    gen_ms = int((time.time() - t0) * 1000)
+    print(f"[WORKER] Done {gen_ms}ms", flush=True)
 
-    return {
-        "image": img_b64,
-        "format": "png",
-        "width": width,
-        "height": height,
-        "gen_time_ms": gen_ms,
-    }
+    return {"image": img_b64, "format": "png", "width": width, "height": height, "gen_time_ms": gen_ms}
 
-
-# ─── RunPod handler ──────────────────────────────────────────────
 if __name__ == "__main__":
     load_model()
     runpod.serverless.start({"handler": generate_image})

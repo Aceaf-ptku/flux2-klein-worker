@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
 """
-RunPod Serverless Worker — SDXL 1.0
-Model: stabilityai/stable-diffusion-xl-base-1.0
+RunPod Serverless Worker — Juggernaut XL v9
+Model: RunDiffusion/Juggernaut-XL-v9
 VAE: madebyollin/sdxl-vae-fp16-fix
 """
 import io, base64, time, traceback, runpod, torch
 from diffusers import StableDiffusionXLPipeline, DPMSolverMultistepScheduler
 from diffusers import AutoencoderKL
 
-_model_id = "stabilityai/stable-diffusion-xl-base-1.0"
+_model_id = "RunDiffusion/Juggernaut-XL-v9"
 _vae_id = "madebyollin/sdxl-vae-fp16-fix"
 _pipe = None
 

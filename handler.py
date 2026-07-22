@@ -14,7 +14,7 @@ import runpod
 
 # Global model — loaded once, reused across requests
 _pipe = None
-_model_id = "ponpoke/flux2-klein-9b-uncensored-text-encoder"
+_model_id = "shauray/FLUX-UNCENSORED-merged"
 
 
 def load_model():

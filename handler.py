@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""RunPod Serverless Worker — Juggernaut XI v11 (GPT-4V captions)"""
+"""RunPod Serverless Worker — Juggernaut XL v9"""
 import io, base64, time, traceback, runpod, torch
 from diffusers import StableDiffusionXLPipeline, DPMSolverMultistepScheduler
 
-_model_id = "RunDiffusion/Juggernaut-XI-v11"
+_model_id = "RunDiffusion/Juggernaut-XL-v9"
 _pipe = None
 
 DEFAULT_NEGATIVE = (
@@ -23,7 +23,8 @@ def load_model():
         _pipe = StableDiffusionXLPipeline.from_pretrained(
             _model_id,
             torch_dtype=torch.float16,
-            use_safetensors=False,
+            variant="fp16",
+            use_safetensors=True,
         )
         _pipe.scheduler = DPMSolverMultistepScheduler.from_config(
             _pipe.scheduler.config,

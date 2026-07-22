@@ -1,23 +1,24 @@
 #!/usr/bin/env python3
 """
-RunPod Serverless Worker — Realistic Vision V5.1 + VAE + Negative Prompt
-Model: SG161222/Realistic_Vision_V5.1_noVAE
-VAE: stabilityai/sd-vae-ft-mse
+RunPod Serverless Worker — SDXL 1.0
+Model: stabilityai/stable-diffusion-xl-base-1.0
+VAE: madebyollin/sdxl-vae-fp16-fix
 """
 import io, base64, time, traceback, runpod, torch
-from diffusers import StableDiffusionPipeline, DPMSolverMultistepScheduler
+from diffusers import StableDiffusionXLPipeline, DPMSolverMultistepScheduler
+from diffusers import AutoencoderKL
 
-_model_id = "SG161222/Realistic_Vision_V5.1_noVAE"
-_vae_id = "stabilityai/sd-vae-ft-mse"
+_model_id = "stabilityai/stable-diffusion-xl-base-1.0"
+_vae_id = "madebyollin/sdxl-vae-fp16-fix"
 _pipe = None
 
 DEFAULT_NEGATIVE = (
     "ugly, deformed, blurry, low quality, bad anatomy, bad hands, "
-    "missing fingers, extra fingers, fused fingers, too many fingers, "
-    "mutated hands, poorly drawn face, poorly drawn hands, bad proportions, "
-    "gross proportions, malformed limbs, missing arms, missing legs, "
-    "extra arms, extra legs, mutated, disfigured, watermark, text, signature, "
-    "username, artist name, jpeg artifacts, compression artifacts"
+    "missing fingers, extra fingers, fused fingers, mutated hands, "
+    "poorly drawn face, bad proportions, gross proportions, "
+    "malformed limbs, mutated, disfigured, watermark, text, signature, "
+    "username, artist name, jpeg artifacts, compression artifacts, "
+    "cartoon, anime, 3D render, CGI, plastic skin, flat texture"
 )
 
 def load_model():
@@ -25,16 +26,13 @@ def load_model():
     print(f"[WORKER] Loading {_model_id}...", flush=True)
     t0 = time.time()
     try:
-        _pipe = StableDiffusionPipeline.from_pretrained(
-            _model_id,
-            torch_dtype=torch.float16,
-            safety_checker=None,
-        )
-        # Pasang VAE
-        from diffusers import AutoencoderKL
         vae = AutoencoderKL.from_pretrained(_vae_id, torch_dtype=torch.float16)
-        _pipe.vae = vae
-        # Sampler DPM++ 2M Karras
+        _pipe = StableDiffusionXLPipeline.from_pretrained(
+            _model_id,
+            vae=vae,
+            torch_dtype=torch.float16,
+            use_safetensors=True,
+        )
         _pipe.scheduler = DPMSolverMultistepScheduler.from_config(
             _pipe.scheduler.config,
             algorithm_type="dpmsolver++",
@@ -57,14 +55,14 @@ def generate_image(job):
     if not prompt:
         return {"error": "prompt is required"}
     negative = inp.get("negative_prompt", DEFAULT_NEGATIVE)
-    width = inp.get("width", 512)
-    height = inp.get("height", 512)
+    width = inp.get("width", 768)
+    height = inp.get("height", 1024)
     steps = inp.get("num_inference_steps", 25)
     guidance = inp.get("guidance_scale", 6.0)
     seed = inp.get("seed")
     generator = torch.Generator(device="cuda").manual_seed(int(seed)) if seed else None
 
-    print(f"[WORKER] {prompt[:60]}... ({width}x{height}, {steps}s, CFG={guidance})", flush=True)
+    print(f"[WORKER] {prompt[:80]}... ({width}x{height}, {steps}s, CFG={guidance})", flush=True)
     t0 = time.time()
     result = _pipe(
         prompt=prompt,

@@ -1,10 +1,24 @@
 #!/usr/bin/env python3
-"""RunPod Serverless Worker — Realistic Vision V5.1"""
-import io, base64, time, traceback, sys, runpod, torch
-from diffusers import StableDiffusionPipeline
+"""
+RunPod Serverless Worker — Realistic Vision V5.1 + VAE + Negative Prompt
+Model: SG161222/Realistic_Vision_V5.1_noVAE
+VAE: stabilityai/sd-vae-ft-mse
+"""
+import io, base64, time, traceback, runpod, torch
+from diffusers import StableDiffusionPipeline, DPMSolverMultistepScheduler
 
 _model_id = "SG161222/Realistic_Vision_V5.1_noVAE"
+_vae_id = "stabilityai/sd-vae-ft-mse"
 _pipe = None
+
+DEFAULT_NEGATIVE = (
+    "ugly, deformed, blurry, low quality, bad anatomy, bad hands, "
+    "missing fingers, extra fingers, fused fingers, too many fingers, "
+    "mutated hands, poorly drawn face, poorly drawn hands, bad proportions, "
+    "gross proportions, malformed limbs, missing arms, missing legs, "
+    "extra arms, extra legs, mutated, disfigured, watermark, text, signature, "
+    "username, artist name, jpeg artifacts, compression artifacts"
+)
 
 def load_model():
     global _pipe
@@ -16,11 +30,21 @@ def load_model():
             torch_dtype=torch.float16,
             safety_checker=None,
         )
+        # Pasang VAE
+        from diffusers import AutoencoderKL
+        vae = AutoencoderKL.from_pretrained(_vae_id, torch_dtype=torch.float16)
+        _pipe.vae = vae
+        # Sampler DPM++ 2M Karras
+        _pipe.scheduler = DPMSolverMultistepScheduler.from_config(
+            _pipe.scheduler.config,
+            algorithm_type="dpmsolver++",
+            solver_order=2,
+            use_karras_sigmas=True,
+        )
         _pipe.to("cuda")
-        elapsed = time.time() - t0
-        print(f"[WORKER] Loaded in {elapsed:.1f}s", flush=True)
+        print(f"[WORKER] Loaded in {time.time()-t0:.1f}s", flush=True)
     except Exception as e:
-        print(f"[WORKER] LOAD FAILED: {e}", flush=True)
+        print(f"[WORKER] FAILED: {e}", flush=True)
         traceback.print_exc()
         raise
 
@@ -32,17 +56,24 @@ def generate_image(job):
     prompt = inp.get("prompt", "")
     if not prompt:
         return {"error": "prompt is required"}
+    negative = inp.get("negative_prompt", DEFAULT_NEGATIVE)
     width = inp.get("width", 512)
     height = inp.get("height", 512)
-    steps = inp.get("num_inference_steps", 20)
-    guidance = inp.get("guidance_scale", 7.0)
+    steps = inp.get("num_inference_steps", 25)
+    guidance = inp.get("guidance_scale", 6.0)
     seed = inp.get("seed")
     generator = torch.Generator(device="cuda").manual_seed(int(seed)) if seed else None
-    print(f"[WORKER] Generating: {prompt[:50]}...", flush=True)
+
+    print(f"[WORKER] {prompt[:60]}... ({width}x{height}, {steps}s, CFG={guidance})", flush=True)
     t0 = time.time()
-    result = _pipe(prompt=prompt, width=width, height=height,
-                   num_inference_steps=steps, guidance_scale=guidance,
-                   generator=generator)
+    result = _pipe(
+        prompt=prompt,
+        negative_prompt=negative,
+        width=width, height=height,
+        num_inference_steps=steps,
+        guidance_scale=guidance,
+        generator=generator,
+    )
     image = result.images[0]
     buf = io.BytesIO()
     image.save(buf, format="PNG")

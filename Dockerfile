@@ -1,5 +1,5 @@
-# RunPod Serverless Worker — Flux2 Klein 9B Uncensored
-FROM nvidia/cuda:12.2.0-runtime-ubuntu22.04
+# RunPod Serverless Worker — Realistic Vision V5.1
+FROM nvidia/cuda:12.4.0-runtime-ubuntu22.04
 
 ENV PYTHONUNBUFFERED=1
 ENV HF_HOME=/cache/huggingface
@@ -12,9 +12,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/* \
     && update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.11 1
 
-# Python deps (torch CUDA — versi kecil dari index)
+# Python deps (torch CUDA 12.4)
 RUN pip install --no-cache-dir --default-timeout=120 \
-    torch torchvision --index-url https://download.pytorch.org/whl/cu121
+    torch torchvision --index-url https://download.pytorch.org/whl/cu124
 RUN pip install --no-cache-dir --default-timeout=120 \
     diffusers>=0.31.0 transformers>=4.45.0 \
     accelerate>=0.34.0 safetensors>=0.4.0 \

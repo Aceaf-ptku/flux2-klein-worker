@@ -24,10 +24,10 @@ def load_model():
     print(f"[WORKER] Loading {_model_id}...", flush=True)
     t0 = time.time()
 
-    from diffusers import FluxPipeline
+    from diffusers import DiffusionPipeline
     import torch
 
-    _pipe = FluxPipeline.from_pretrained(
+    _pipe = DiffusionPipeline.from_pretrained(
         _model_id,
         torch_dtype=torch.bfloat16,          # efficient on modern GPUs
         use_safetensors=True,
